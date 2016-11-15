@@ -1,57 +1,113 @@
 # HIV References
-
-## 1. Download HIV references sequences from LANL
-
-The [Los Alamos HIV Database](https://hiv.lanl.gov/) is used to obtain reference sequences.
-LANL has [curated alignments](https://www.hiv.lanl.gov/content/sequence/NEWALIGN/align.html)
-available for download at the above link. We will download complete **genomes** for the 
-**subtype references** from **2014** and use this to identify the subtypes of our samples.
-We will also download complete **genomes** for **consensus/ancestral** sequences from **2002**.
-
-The fields of interest are *Alignment type*, *Region*, and *Year*.
-
-![Screenshot of LANL download page](../../docs/lanl_hiv_download.png)
-
-For the subtype reference, select *Subtype reference*, *GENOME*, and *2010*.
-Save the downloaded file as `HIV1_REF_2010_genome_DNA.fasta` in the `LANL` directory.
-
-For the consensus reference, select *Consensus/Ancestral*, *GENOME*, and *2002*.
-Save the downloaded file as `HIV1_CON_2002_genome_DNA.fasta` in the `LANL` directory.
+Create ids.txt file
 
 
-## 2. Extract subset of references
+Want to put subtype consensus sequences in fasta file --
+	HIV1_CON_2002_genome_DNA
+	Has consensus sequences for each subtype 
 
-The strategy we will use for identifying the subtype of each sample is to compare
-sequences from the sample to a reference database containing one representative from
-each subtype. The downloaded file contains multiple sequences for each subtype, so here
-we are going to extract a subset of the sequences for building the database.
 
-We have already selected the IDs in a file called  `ids.txt`.
-The following script selects the sequences and creates a FASTA file:
+HIV consensus data:
+Alignment type: Consensus/Ancestral
+Year: 2002 
+Organism: HIV-1/SIVcpz 
+DNA/Protein: DNA 
+Region: genome 
+Subtype: ALL 
+Format: FASTA 
+Alignment ID : 102CG1
+Number of sequences: 20
 
-```python
+
+HIV subtype data:
+Alignment type: Subtype reference
+Year: 2010 
+Organism: HIV-1/SIVcpz 
+DNA/Protein: DNA 
+Region: genome 
+Subtype: ALL 
+Format: FASTA 
+Alignment ID : 110RG1
+Number of sequences: 170
+
+
+
+
+
+
+Download HIV references sequences from LANL
+Go to: Alignments, Curated Alignments
+Whole genome reference
+Select: Consensus/Ancestral, HIV-1/SIVcpz, GENOME, All, DNA, 2002, fasta
+Save downloaded file as HIV1_CON_2002_genome_DNA.fasta
+Go to: Alignments, Curated Alignments
+Subtype reference
+Select: Subtype reference, HIV-1/SIVcpz, GENOME, All, DNA, 2010, fasta
+Save downloaded file as HIV_SUB_2010_genome_DNA.fasta
+Extract subset of references
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from Bio import SeqIO
 import re
+
+
+
 
 """
 Load all sequences in FASTA file into a dictionary with the sequence ID as the key
 """
 seqs = {}
-for s in SeqIO.parse('LANL/HIV1_REF_2010_genome_DNA.fasta','fasta'):
+for s in SeqIO.parse('LANL/HIV1_CON_2002_Genome_DNA.fasta','fasta'):
     seqs[s.id] = s
+"""
+
+Extract the subtype consensus sequences to HIV_subtype_consensus.fasta
+***********in the HIV consensus fasta file, there are consensus sequences for each subtype******
 
 """
-Extract one sequence from each subtype (from ids.txt) to HIV_subtype_refs.fasta.
+connames = [k for k in seqs.keys() if k.split('.')[1].startswith('CON')]
+connames.sort(key=lambda x:x.split('.')[1].split('(')[0])
+with open('HIV_subtype_consensus.fasta', 'w') as outh:
+    for rn in connames:
+        seqstr = str(seqs[rn].seq)
+        seqstr = seqstr.replace('-', '').upper()
+        seqstr = re.sub('\?','N', seqstr)
+        id = 'HIV_%s.con' % rn.split('.')[1].split('(')[0].split('_')[1]
+        print >>outh, '>%s' % id
+        for i in range(0,len(seqstr),100):
+            print >>outh, seqstr[i:i+100]
+
+
+
+
+"""
+Extract one sequence from each subtype (from HIVids.txt) to HIV_subtype_refs.fasta.
 Also, write each sequence within its own file in the "subtypes" directory
 """
-refnames = [l.strip() for l in open('ids.txt','r')]
+refnames = [l.strip() for l in open('HIVids.txt','r')]
 refnames.sort(key=lambda x: x.split('.')[1].lower())
 with open('HIV_subtype_refs.fasta', 'w') as outh:
     for rn in refnames:
         seqstr = str(seqs[rn].seq)
         seqstr = seqstr.replace('-', '').upper()
         seqstr = re.sub('\?','N', seqstr)
-        id = 'HIV_%s' % rn.split('.')[1].upper()
+        id = 'HIV_%s' % rn.split('.')[1].lower()
         id = '%s.%s' % (id, rn.split('.')[-1])
         print >>outh, '>%s' % id
         for i in range(0,len(seqstr),100):
@@ -60,49 +116,9 @@ with open('HIV_subtype_refs.fasta', 'w') as outh:
             print >>outs, '>%s' % id
             for i in range(0,len(seqstr),100):
                 print >>outs, seqstr[i:i+100]
-```
 
-We will also create references for the consensus sequences.
 
-```python
-from Bio import SeqIO
-import re
 
-"""
-Load all sequences in FASTA file into a dictionary with the sequence ID as the key
-"""
-seqs = {}
-for s in SeqIO.parse('LANL/HIV1_CON_2002_genome_DNA.fasta','fasta'):
-    seqs[s.id] = s
-
-"""
-Extract the subtype consensus sequences to HIV_subtype_consensus.fasta
-"""
-connames = ['CONSENSUS_%s' % st for st in ['A1','A2','B','C','D','F1','G','H','O']]
-with open('HIV_subtype_consensus.fasta', 'w') as outh:
-    for rn in connames:
-        seqstr = str(seqs[rn].seq)
-        seqstr = seqstr.replace('-', '').upper()
-        seqstr = re.sub('\?','N', seqstr)
-        id = 'HIV_%s.con' % rn.split('_')[1]
-        print >>outh, '>%s' % id
-        for i in range(0,len(seqstr),100):
-            print >>outh, seqstr[i:i+100]
-
-```
-
-There should be two fasta files in the current directory: 
-`HIV_subtype_consensus.fasta`, and `HIV_subtype_refs.fasta`.
-There should also be one `*.fasta` file for
-each subtype in the `subtypes` directory.
-
-## 3. Index references
-
-Some software programs require special "index" files in order to use sequence files.
-Here we are going to prebuild indexes used by different programs. This
-builds the `novoalign`, `samtools` and `picard` indexes.
-
-```bash
 module load viral-ngs
 for f in *.fasta; do
     read_utils.py novoindex $f
@@ -115,11 +131,6 @@ for f in subtypes/*.fasta; do
     read_utils.py index_fasta_samtools $f
     read_utils.py index_fasta_picard $f
 done
-```
-
-Here we build the `blast+` indexes.
-
-```bash
 module load blast+
 for f in *.fasta; do
     makeblastdb -in $f -dbtype nucl -out ${f%.*}
@@ -128,11 +139,8 @@ done
 for f in subtypes/*.fasta; do
     makeblastdb -in $f -dbtype nucl -out ${f%.*}
 done
-```
 
-Finally, we build `bowtie2` indexes:
 
-```bash
 module load bowtie2
 for f in *.fasta; do
     bowtie2-build $f ${f%.*}
@@ -141,4 +149,23 @@ done
 for f in subtypes/*.fasta; do
     bowtie2-build $f ${f%.*}
 done
-```
+
+
+
+
+
+
+
+
+TXT
+Save as HIVids.txt
+
+
+Ref.A1.AU.03.PS1044_Day0.DQ676872
+Ref.A2.CD.97.97CDKTB48.AF286238
+Ref.B.FR.83.HXB2_LAI_IIIB_BRU.K03455
+Ref.C.BR.92.BR025_d.U52953
+Ref.D.CD.83.ELI.K03454
+Ref.F1.BE.93.VI850.AF077336
+Ref.G.BE.96.DRCBL.AF084936
+Ref.H.BE.93.VI991.AF190127
