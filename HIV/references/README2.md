@@ -5,62 +5,59 @@
 The [Los Alamos HIV Database](https://hiv.lanl.gov/) is used to obtain reference sequences.
 LANL has [curated alignments](https://www.hiv.lanl.gov/content/sequence/NEWALIGN/align.html)
 available for download at the above link. We will download complete **genomes** for the 
-**subtype references** from **2014** and use this to identify the subtypes of our samples.
+**subtype references** from **2010** and use this to identify the subtypes of our samples.
 We will also download complete **genomes** for **consensus/ancestral** sequences from **2002**.
 
-The fields of interest are *Alignment type*, *Region*, and *Year*.
+The fields of interest are *Alignment type*, *Region*, *Subtype*, and *Year*.
 
 ![Screenshot of LANL download page](../../docs/lanl_hiv_download.png)
 
-For the subtype reference, select *Subtype reference*, *GENOME*, and *2010*.
+For the subtype reference, select *Subtype reference*, *GENOME*,
+*M group without recombinants*, and *2010*.
 Save the downloaded file as `HIV1_REF_2010_genome_DNA.fasta` in the `LANL` directory.
 
-For the consensus reference, select *Consensus/Ancestral*, *GENOME*, and *2002*.
+For the consensus reference, select *Consensus/Ancestral*, *GENOME*,
+*M group without recombinants*, and *2002*.
 Save the downloaded file as `HIV1_CON_2002_genome_DNA.fasta` in the `LANL` directory.
 
 
-## 2. Extract subset of references
+## 2. Extract references
 
 The strategy we will use for identifying the subtype of each sample is to compare
-sequences from the sample to a reference database containing one representative from
-each subtype. The downloaded file contains multiple sequences for each subtype, so here
-we are going to extract a subset of the sequences for building the database.
+sequences from the sample to a reference database containing a few representatives from
+each subtype. The downloaded file contains approximately 4 representative sequences for 
+each subtype.
 
-We have already selected the IDs in a file called  `ids.txt`.
-The following script selects the sequences and creates a FASTA file:
+The following script reformats the subtype reference names and sequences:
 
 ```python
 from Bio import SeqIO
 import re
 
 """
-Load all sequences in FASTA file into a dictionary with the sequence ID as the key
+Load all sequences in FASTA file into a dictionary with new ID as the key
 """
 seqs = {}
 for s in SeqIO.parse('LANL/HIV1_REF_2010_genome_DNA.fasta','fasta'):
-    seqs[s.id] = s
+    subt = s.id.split('.')[1]
+    acc = s.id.split('.')[-1]
+    name = s.id.split('.')[-2]
+    newid = 'HIV_%s.%s.%s' % (subt, acc, name)
+    seqs[newid] = s
 
-"""
-Extract one sequence from each subtype (from ids.txt) to HIV_subtype_refs.fasta.
-Also, write each sequence within its own file in the "subtypes" directory
-"""
-refnames = [l.strip() for l in open('ids.txt','r')]
-refnames.sort(key=lambda x: x.split('.')[1].lower())
 with open('HIV_subtype_refs.fasta', 'w') as outh:
-    for rn in refnames:
+    for rn in sorted(seqs.keys()):
         seqstr = str(seqs[rn].seq)
         seqstr = seqstr.replace('-', '').upper()
         seqstr = re.sub('\?','N', seqstr)
-        id = 'HIV_%s' % rn.split('.')[1].upper()
-        id = '%s.%s' % (id, rn.split('.')[-1])
-        print >>outh, '>%s' % id
+        print >>outh, '>%s' % rn
         for i in range(0,len(seqstr),100):
-            print >>outh, seqstr[i:i+100]        
-        with open('subtypes/%s.fasta' % id, 'w') as outs:
-            print >>outs, '>%s' % id
+            print >>outh, seqstr[i:i+100]
+        with open('subtypes/%s.fasta' % rn, 'w') as outs:
+            print >>outs, '>%s' % rn
             for i in range(0,len(seqstr),100):
                 print >>outs, seqstr[i:i+100]
-```
+``` 
 
 We will also create references for the consensus sequences.
 
